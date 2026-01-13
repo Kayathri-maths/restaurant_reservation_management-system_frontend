@@ -4,9 +4,11 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Toast from "../components/Toast";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { useAuth } from "../context/AuthContext";
 
 export default function Register() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -35,13 +37,30 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await api.post("/api/auth/register", formData);
+      const registerResponse = await api.post("/api/auth/register", formData);
 
-      if (response.data.success) {
-        setToast({ message: "Registration successful!", type: "success" });
-        setTimeout(() => {
-          navigate("/login");
-        }, 1500);
+      if (registerResponse.data.success) {
+        // Auto-login after successful registration
+        const loginResponse = await api.post("/api/auth/login", {
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (loginResponse.data.success) {
+          login(loginResponse.data.data);
+          setToast({
+            message: "Registration successful! Redirecting...",
+            type: "success",
+          });
+
+          setTimeout(() => {
+            const redirectPath =
+              loginResponse.data.data.user.role === "admin"
+                ? "/admin/dashboard"
+                : "/user/dashboard";
+            navigate(redirectPath);
+          }, 1000);
+        }
       }
     } catch (error) {
       const message =
